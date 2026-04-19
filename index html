@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>WorldConq — TikTok Live Territory Wars</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg0:#020810;--bg1:#060f1e;--bg2:#0a1628;--bg3:#0f1f3a;
+  --accent:#00d4ff;--gold:#ffd700;--gold2:#ffaa00;
+  --silver:#c8d8e8;--bronze:#cd8c3c;
+  --success:#00ff88;--danger:#ff3355;--warning:#ff9900;
+  --border:rgba(0,212,255,0.12);--border2:rgba(0,212,255,0.28);
+  --text:#d0e4f8;--text2:#6a8aaa;--text3:#3a5a7a;
+}
+html,body{width:100%;height:100%;background:var(--bg0);color:var(--text);
+  font-family:'Rajdhani',sans-serif;overflow:hidden;user-select:none}
+
+#app{display:grid;
+  grid-template-columns:230px 1fr 245px;
+  grid-template-rows:54px 1fr 62px;
+  grid-template-areas:"hd hd hd""lf mp rt""ft ft ft";
+  width:100vw;height:100vh}
+
+/* HEADER */
+#hd{grid-area:hd;display:flex;align-items:center;padding:0 18px;gap:14px;
+  background:var(--bg2);border-bottom:1px solid var(--border2);z-index:50}
+.logo{font-family:'Orbitron',monospace;font-size:15px;font-weight:900;color:var(--accent);letter-spacing:3px}
+.logo-sub{font-size:9px;color:var(--text3);letter-spacing:2px}
+.hdiv{width:1px;height:28px;background:var(--border2)}
+.live-dot{width:7px;height:7px;border-radius:50%;background:#ff3355;animation:blink 1.1s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+.badge{display:flex;align-items:center;gap:6px;border-radius:6px;padding:4px 11px;font-size:10px;font-weight:700;letter-spacing:1px}
+.bt{background:rgba(255,0,80,.1);border:1px solid rgba(255,0,80,.35);color:#ff5577}
+.bs{background:rgba(255,150,0,.1);border:1px solid rgba(255,150,0,.35);color:var(--warning)}
+.hstats{margin-left:auto;display:flex;gap:22px}
+.hstat{text-align:center}
+.hv{font-family:'Orbitron',monospace;font-size:17px;font-weight:700;color:var(--accent);line-height:1}
+.hl{font-size:9px;color:var(--text3);letter-spacing:1px;text-transform:uppercase;margin-top:1px}
+
+/* LEFT */
+#lf{grid-area:lf;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.ptitle{font-family:'Orbitron',monospace;font-size:9px;font-weight:700;color:var(--text3);
+  letter-spacing:2px;text-transform:uppercase;padding:10px 14px 8px;border-bottom:1px solid var(--border);flex-shrink:0}
+#lb-list{flex:1;overflow-y:auto}
+.lbe{display:flex;align-items:center;gap:7px;padding:7px 11px;
+  border-bottom:1px solid rgba(255,255,255,.03);transition:background .15s;position:relative}
+.lbe:hover{background:rgba(0,212,255,.04)}
+.lbe.t1{background:rgba(255,215,0,.04)}
+.lbe.t2{background:rgba(192,216,232,.03)}
+.lbe.t3{background:rgba(205,140,60,.03)}
+.lbrank{width:20px;text-align:center;font-family:'Orbitron',monospace;font-size:11px;font-weight:700;flex-shrink:0}
+.r1{color:var(--gold)}.r2{color:var(--silver)}.r3{color:var(--bronze)}.rn{color:var(--text3);font-size:9px}
+.lbav{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-size:11px;font-weight:700;flex-shrink:0;border:2px solid transparent}
+.lbi{flex:1;min-width:0}
+.lbn{font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lbm{font-size:9px;color:var(--text3)}
+.lbs{font-family:'Orbitron',monospace;font-size:11px;color:var(--accent);flex-shrink:0}
+.lbbar{position:absolute;bottom:0;left:50px;right:0;height:2px;background:rgba(255,255,255,.04)}
+.lbbarfill{height:100%;transition:width .6s ease}
+
+/* MAP */
+#mp{grid-area:mp;position:relative;overflow:hidden;background:#020e1a}
+#world-svg{width:100%;height:100%;display:block}
+.country{stroke:#0a2040;stroke-width:.4px;cursor:pointer;transition:fill .4s,opacity .2s}
+.country.unclaimed{fill:#071628}
+.country.unclaimed:hover{fill:#0e2a4a;stroke:#1a4060}
+.ocean{fill:#020e1e}
+.graticule{fill:none;stroke:rgba(0,80,150,0.15);stroke-width:.3px}
+.sphere-stroke{fill:none;stroke:rgba(0,212,255,.18);stroke-width:.8px}
+
+#toast{position:absolute;top:14px;left:50%;transform:translateX(-50%);
+  background:rgba(2,10,22,.94);border:1px solid var(--accent);border-radius:8px;
+  padding:7px 18px;font-family:'Orbitron',monospace;font-size:11px;color:var(--accent);
+  white-space:nowrap;z-index:100;pointer-events:none;opacity:0;transition:opacity .3s}
+#toast.show{opacity:1}
+
+.gift-popup{position:absolute;background:rgba(4,12,26,.95);border-radius:6px;
+  padding:4px 9px;font-family:'Orbitron',monospace;font-size:10px;
+  pointer-events:none;z-index:200;animation:gfloat 2.2s forwards;white-space:nowrap;border:1px solid}
+@keyframes gfloat{
+  0%{opacity:0;transform:translateY(6px) scale(.8)}
+  12%{opacity:1;transform:translateY(0) scale(1)}
+  70%{opacity:1;transform:translateY(-18px)}
+  100%{opacity:0;transform:translateY(-40px)}}
+
+.battle-ring{position:absolute;border-radius:50%;pointer-events:none;z-index:150;animation:bring .9s forwards}
+@keyframes bring{0%{opacity:.9;transform:scale(0)}60%{opacity:.6;transform:scale(1)}100%{opacity:0;transform:scale(2.2)}}
+
+.join-notif{position:absolute;right:255px;top:14px;background:rgba(0,255,136,.1);
+  border:1px solid rgba(0,255,136,.3);border-radius:8px;padding:6px 13px;
+  font-size:11px;font-weight:700;color:var(--success);white-space:nowrap;
+  z-index:100;pointer-events:none;animation:jn 2.8s forwards}
+@keyframes jn{0%{opacity:0;transform:translateY(-8px)}15%{opacity:1;transform:translateY(0)}80%{opacity:1}100%{opacity:0}}
+
+.leg-flash{position:absolute;inset:0;pointer-events:none;z-index:80;
+  background:radial-gradient(ellipse at center,rgba(251,191,36,.08) 0%,transparent 70%);
+  animation:lfl 1.6s forwards}
+@keyframes lfl{0%,100%{opacity:0}25%,75%{opacity:1}}
+
+#round-bar{position:absolute;bottom:0;left:0;right:0;height:3px;background:rgba(0,212,255,.08);z-index:80}
+#round-prog{height:100%;width:0%;background:linear-gradient(90deg,var(--accent),#0088cc);
+  box-shadow:0 0 8px var(--accent);transition:width .5s linear}
+
+/* RIGHT */
+#rt{grid-area:rt;background:var(--bg2);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+#gift-list{flex:1;overflow-y:auto}
+.gi{padding:7px 11px;border-bottom:1px solid rgba(255,255,255,.03);animation:sli .3s ease}
+@keyframes sli{from{transform:translateX(14px);opacity:0}to{transform:none;opacity:1}}
+.gi-r1{display:flex;align-items:center;justify-content:space-between}
+.gi-user{font-size:12px;font-weight:700}
+.gi-pow{font-family:'Orbitron',monospace;font-size:10px;color:var(--gold)}
+.gi-r2{font-size:10px;color:var(--text3);margin-top:1px}
+.rar{display:inline-block;padding:1px 5px;border-radius:3px;font-size:9px;font-weight:700;letter-spacing:.8px;margin-left:3px}
+.rc{background:rgba(150,160,180,.14);color:#a0b0c0}
+.rr{background:rgba(96,165,250,.14);color:#60a5fa}
+.re{background:rgba(192,132,252,.14);color:#c084fc}
+.rl{background:rgba(251,191,36,.14);color:#fbbf24}
+
+/* FOOTER */
+#ft{grid-area:ft;background:var(--bg2);border-top:1px solid var(--border2);
+  display:flex;align-items:center;padding:0 18px;gap:16px;z-index:50}
+.fdiv{width:1px;height:34px;background:var(--border)}
+.cl{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:1px}
+#spd{-webkit-appearance:none;appearance:none;width:88px;height:4px;
+  background:linear-gradient(to right,var(--accent) 40%,var(--bg3) 40%);
+  border-radius:2px;outline:none;cursor:pointer}
+#spd::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;border-radius:50%;
+  background:var(--accent);border:2px solid var(--bg2);cursor:pointer;box-shadow:0 0 7px rgba(0,212,255,.5)}
+.spv{font-family:'Orbitron',monospace;font-size:11px;color:var(--accent);min-width:18px}
+#btn-sim{padding:8px 20px;background:linear-gradient(135deg,#7c3aed,#4338ca);
+  border:1px solid rgba(124,58,237,.5);border-radius:7px;color:#fff;
+  font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:700;cursor:pointer;
+  letter-spacing:1.5px;text-transform:uppercase;transition:all .2s;box-shadow:0 0 18px rgba(124,58,237,.22)}
+#btn-sim:hover{transform:scale(1.04);box-shadow:0 0 28px rgba(124,58,237,.42)}
+#btn-sim.stop{background:linear-gradient(135deg,#991b1b,#7f1d1d);border-color:rgba(153,27,27,.5)}
+#btn-rst{padding:8px 14px;background:transparent;border:1px solid var(--border2);border-radius:7px;
+  color:var(--text2);font-family:'Rajdhani',sans-serif;font-size:12px;font-weight:600;
+  cursor:pointer;letter-spacing:1px;text-transform:uppercase;transition:all .2s}
+#btn-rst:hover{border-color:var(--danger);color:var(--danger)}
+#tt-wrap{margin-left:auto;display:flex;align-items:center;gap:9px}
+#tt-inp{background:var(--bg3);border:1px solid var(--border2);border-radius:6px;
+  padding:6px 11px;color:var(--text);font-family:'Rajdhani',sans-serif;font-size:12px;
+  width:155px;outline:none;transition:border-color .2s}
+#tt-inp:focus{border-color:var(--accent)}
+#tt-inp::placeholder{color:var(--text3)}
+#btn-conn{padding:7px 14px;background:linear-gradient(135deg,#ff0050,#cc0040);
+  border:none;border-radius:6px;color:#fff;font-family:'Rajdhani',sans-serif;
+  font-size:12px;font-weight:700;cursor:pointer;letter-spacing:1px;text-transform:uppercase;transition:all .2s}
+#btn-conn:hover{transform:scale(1.04);box-shadow:0 0 18px rgba(255,0,80,.4)}
+::-webkit-scrollbar{width:3px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+</style>
+</head>
+<body>
+<div id="app">
+
+<header id="hd">
+  <div>
+    <div class="logo">🌍 WORLDCONQ</div>
+    <div class="logo-sub">TIKTOK LIVE TERRITORY WARS</div>
+  </div>
+  <div class="hdiv"></div>
+  <div class="badge bt"><div class="live-dot"></div>TIKTOK LIVE</div>
+  <div class="badge bs">⚡ SIMULATION</div>
+  <div class="hstats">
+    <div class="hstat"><div class="hv" id="h-players">0</div><div class="hl">Players</div></div>
+    <div class="hstat"><div class="hv" id="h-countries">0</div><div class="hl">Countries</div></div>
+    <div class="hstat"><div class="hv" id="h-gifts">0</div><div class="hl">Gifts</div></div>
+    <div class="hstat"><div class="hv" id="h-battles">0</div><div class="hl">Battles</div></div>
+  </div>
+</header>
+
+<aside id="lf">
+  <div class="ptitle">🏆 Leaderboard</div>
+  <div id="lb-list"></div>
+</aside>
+
+<main id="mp">
+  <svg id="world-svg"></svg>
+  <div id="toast"></div>
+  <div id="round-bar"><div id="round-prog"></div></div>
+</main>
+
+<aside id="rt">
+  <div class="ptitle">🎁 Live Gift Feed</div>
+  <div id="gift-list"></div>
+</aside>
+
+<footer id="ft">
+  <div style="display:flex;align-items:center;gap:8px">
+    <span class="cl">Speed</span>
+    <input type="range" id="spd" min="1" max="5" value="2">
+    <span class="spv" id="spv">2x</span>
+  </div>
+  <div class="fdiv"></div>
+  <button id="btn-sim" onclick="toggleSim()">▶ Start Simulation</button>
+  <button id="btn-rst" onclick="resetGame()">↺ Reset</button>
+  <div class="fdiv"></div>
+  <div id="tt-wrap">
+    <input type="text" id="tt-inp" placeholder="@tiktok_username">
+    <button id="btn-conn" onclick="connectTikTok()">Connect Live</button>
+  </div>
+</footer>
+</div>
+
+<script>
+// ─── CONFIG ───────────────────────────────────────────
+const PLAYER_NAMES = [
+  'StarGazer99','NightOwl7','LegendX','PhoenixRise','QuantumQ',
+  'VoidWalker','SkyFury','IronMask','DragonFly','CometChaser',
+  'NeonBlade','FrostByte','SolarFlare','DarkMatter','HyperPulse',
+  'ZenMaster','StormCrow','BlazePeak','ShadowStep','LunarWolf',
+  'CosmicRay','ThunderBolt','CrystalEye','VortexKing','GhostRider',
+];
+const COLORS = [
+  '#ff4757','#ff6348','#ffa502','#2ed573','#1e90ff',
+  '#a855f7','#ff69b4','#00bcd4','#ff8c00','#69f0ae',
+  '#ffab40','#40c4ff','#ea80fc','#f06292','#80cbc4',
+  '#b39ddb','#ff7043','#26c6da','#d4e157','#ef5350',
+];
+const GIFTS = [
+  {name:'Rose',   emoji:'🌹',power:1, rarity:'common',   rc:'rc',color:'#e879a0'},
+  {name:'Star',   emoji:'⭐',power:3, rarity:'common',   rc:'rc',color:'#fde047'},
+  {name:'Diamond',emoji:'💎',power:7, rarity:'rare',     rc:'rr',color:'#60a5fa'},
+  {name:'Crown',  emoji:'👑',power:18,rarity:'epic',     rc:'re',color:'#c084fc'},
+  {name:'Dragon', emoji:'🐉',power:40,rarity:'epic',     rc:'re',color:'#f97316'},
+  {name:'Galaxy', emoji:'🌌',power:90,rarity:'legendary',rc:'rl',color:'#fbbf24'},
+];
+const ROUND_MS = 180000;
+
+// Country names lookup
+const CN = {
+  4:'Afghanistan',8:'Albania',12:'Algeria',24:'Angola',32:'Argentina',
+  36:'Australia',40:'Austria',50:'Bangladesh',56:'Belgium',68:'Bolivia',
+  76:'Brazil',100:'Bulgaria',116:'Cambodia',120:'Cameroon',124:'Canada',
+  144:'Sri Lanka',152:'Chile',156:'China',170:'Colombia',178:'Congo',
+  203:'Czech Rep.',208:'Denmark',218:'Ecuador',818:'Egypt',231:'Ethiopia',
+  246:'Finland',250:'France',276:'Germany',288:'Ghana',300:'Greece',
+  320:'Guatemala',340:'Honduras',348:'Hungary',356:'India',360:'Indonesia',
+  364:'Iran',368:'Iraq',372:'Ireland',376:'Israel',380:'Italy',
+  392:'Japan',400:'Jordan',398:'Kazakhstan',404:'Kenya',410:'S.Korea',
+  408:'N.Korea',418:'Laos',434:'Libya',484:'Mexico',504:'Morocco',
+  508:'Mozambique',516:'Namibia',524:'Nepal',528:'Netherlands',
+  554:'New Zealand',558:'Nicaragua',566:'Nigeria',578:'Norway',
+  586:'Pakistan',591:'Panama',600:'Paraguay',604:'Peru',608:'Philippines',
+  616:'Poland',620:'Portugal',642:'Romania',643:'Russia',682:'Saudi Arabia',
+  686:'Senegal',706:'Somalia',710:'S.Africa',724:'Spain',729:'Sudan',
+  752:'Sweden',756:'Switzerland',760:'Syria',764:'Thailand',
+  792:'Turkey',800:'Uganda',804:'Ukraine',784:'UAE',826:'UK',
+  840:'USA',858:'Uruguay',862:'Venezuela',704:'Vietnam',887:'Yemen',
+  894:'Zambia',716:'Zimbabwe',
+};
+
+// ─── STATE ────────────────────────────────────────────
+let players = {}, countries = {};
+let simRunning = false, simTimer = null, roundTimer = null;
+let roundStart = 0, totalGifts = 0, totalBattles = 0;
+let projection, pathGen;
+
+// ─── MAP INIT ─────────────────────────────────────────
+async function initMap() {
+  const svgEl = document.getElementById('world-svg');
+  const W = svgEl.clientWidth || 700;
+  const H = svgEl.clientHeight || 400;
+
+  const svg = d3.select('#world-svg')
+    .attr('viewBox', `0 0 ${W} ${H}`)
+    .attr('preserveAspectRatio', 'xMidYMid meet');
+
+  projection = d3.geoNaturalEarth1()
+    .scale(W / 6.3)
+    .translate([W / 2, H / 2]);
+
+  pathGen = d3.geoPath().projection(projection);
+
+  // Ocean
+  svg.append('rect').attr('class','ocean').attr('width',W).attr('height',H);
+
+  // Graticule
+  svg.append('path')
+    .datum(d3.geoGraticule()())
+    .attr('class','graticule')
+    .attr('d', pathGen);
+
+  // Sphere outline
+  svg.append('path')
+    .datum({type:'Sphere'})
+    .attr('class','sphere-stroke')
+    .attr('d', pathGen);
+
+  try {
+    const topo = await d3.json('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json');
+    const world = topojson.feature(topo, topo.objects.countries);
+
+    svg.selectAll('path.country')
+      .data(world.features)
+      .enter()
+      .append('path')
+        .attr('class','country unclaimed')
+        .attr('id', d => 'c' + d.id)
+        .attr('d', pathGen)
+        .append('title').text(d => CN[d.id] || 'Territory ' + d.id);
+
+    world.features.forEach(f => {
+      const id = String(f.id);
+      const c = pathGen.centroid(f);
+      countries[id] = {
+        id,
+        name: CN[f.id] || 'Territory ' + f.id,
+        owner: null,
+        centroid: c,
+        el: document.getElementById('c' + f.id),
+      };
+    });
+
+    showToast('🌍 World map loaded! Starting simulation…');
+    setTimeout(() => toggleSim(), 900);
+
+  } catch(e) {
+    console.error(e);
+    showToast('⚠️ Could not load map. Open in a browser with internet access.','#ff9900');
+    // Draw fallback placeholder
+    svg.append('rect').attr('x',40).attr('y',40).attr('width',W-80).attr('height',H-80)
+      .attr('rx',10).attr('fill','#071628').attr('stroke','#1a4060').attr('stroke-width','1');
+    svg.append('text').attr('x',W/2).attr('y',H/2-12).attr('text-anchor','middle')
+      .attr('fill','#3a5a7a').attr('font-family','Orbitron,monospace').attr('font-size','16')
+      .text('🌍 World map requires internet connection');
+    svg.append('text').attr('x',W/2).attr('y',H/2+14).attr('text-anchor','middle')
+      .attr('fill','#2a3a5a').attr('font-family','Rajdhani,sans-serif').attr('font-size','13')
+      .text('Open worldconq-tiktok-live.html in your browser');
+  }
+}
+
+// ─── GAME LOGIC ───────────────────────────────────────
+function addPlayer(name) {
+  const id = 'p_' + name;
+  if (players[id]) return id;
+  const idx = Object.keys(players).length % COLORS.length;
+  players[id] = {id, name, color: COLORS[idx], countryCount:0, totalPower:0};
+  setStat('h-players', Object.keys(players).length);
+  return id;
+}
+
+function captureCountry(playerId, countryId, isBattle) {
+  const p = players[playerId];
+  const c = countries[countryId];
+  if (!p || !c || c.owner === playerId) return;
+
+  const prev = c.owner;
+  if (prev && players[prev]) {
+    players[prev].countryCount = Math.max(0, players[prev].countryCount - 1);
+  }
+  if (isBattle) {
+    totalBattles++;
+    setStat('h-battles', totalBattles);
+    flashBattle(c.centroid);
+  }
+
+  c.owner = playerId;
+  p.countryCount++;
+
+  if (c.el) {
+    c.el.style.fill = p.color;
+    c.el.style.stroke = hexA(p.color, .6);
+    c.el.style.strokeWidth = '1px';
+    c.el.classList.remove('unclaimed');
+    // Quick flash
+    c.el.style.opacity = '.4';
+    setTimeout(() => { if(c.el) c.el.style.opacity = '1'; }, 350);
+  }
+
+  setStat('h-countries', Object.values(countries).filter(x => x.owner).length);
+  updateLB();
+}
+
+function freeCountry(id) {
+  const c = countries[id];
+  if (!c || !c.owner) return;
+  if (players[c.owner]) players[c.owner].countryCount = Math.max(0, players[c.owner].countryCount - 1);
+  c.owner = null;
+  if (c.el) {
+    c.el.style.fill = '';
+    c.el.style.stroke = '';
+    c.el.style.strokeWidth = '';
+    c.el.classList.add('unclaimed');
+  }
+}
+
+function pickTarget(playerId, power) {
+  const owned   = Object.values(countries).filter(c => c.owner === playerId);
+  const free    = Object.values(countries).filter(c => !c.owner && c.el);
+  const enemy   = Object.values(countries).filter(c => c.owner && c.owner !== playerId && c.el);
+
+  // Prefer adjacent expansion
+  if (owned.length > 0 && free.length > 0 && Math.random() < .65) {
+    const base = owned[Math.floor(Math.random() * owned.length)];
+    if (base.centroid && !isNaN(base.centroid[0])) {
+      const near = free
+        .filter(c => c.centroid && !isNaN(c.centroid[0]))
+        .map(c => ({c, d: dist(base.centroid, c.centroid)}))
+        .sort((a,b) => a.d - b.d)
+        .slice(0, 8);
+      if (near.length > 0) return {c: near[Math.floor(Math.random() * near.length)].c, battle:false};
+    }
+  }
+  if (free.length > 0 && Math.random() < .75)
+    return {c: free[Math.floor(Math.random() * free.length)], battle:false};
+  if (power >= 7 && enemy.length > 0 && Math.random() < .4)
+    return {c: enemy[Math.floor(Math.random() * enemy.length)], battle:true};
+  return null;
+}
+
+function applyGift(playerId, gift) {
+  const p = players[playerId];
+  if (!p) return;
+  p.totalPower += gift.power;
+  const count = Math.max(1, Math.floor(gift.power / 5));
+  for (let i = 0; i < count; i++) {
+    const t = pickTarget(playerId, gift.power);
+    if (t) captureCountry(playerId, t.c.id, t.battle);
+  }
+}
+
+function dist([x1,y1],[x2,y2]){return Math.hypot(x2-x1,y2-y1)}
+
+// ─── UI ───────────────────────────────────────────────
+function updateLB() {
+  const sorted = Object.values(players).sort((a,b) => b.countryCount - a.countryCount);
+  const maxC = sorted[0]?.countryCount || 1;
+  const list = document.getElementById('lb-list');
+  list.innerHTML = '';
+  sorted.slice(0,15).forEach((p,i) => {
+    const rc  = i===0?'r1':i===1?'r2':i===2?'r3':'rn';
+    const ec  = i===0?'t1':i===1?'t2':i===2?'t3':'';
+    const sym = i===0?'①':i===1?'②':i===2?'③':String(i+1);
+    const bar = Math.round((p.countryCount/maxC)*100);
+    const d = document.createElement('div');
+    d.className = 'lbe ' + ec;
+    d.innerHTML = `
+      <div class="lbrank ${rc}">${sym}</div>
+      <div class="lbav" style="background:${hexA(p.color,.18)};border-color:${p.color};color:${p.color}">${p.name.slice(0,2).toUpperCase()}</div>
+      <div class="lbi">
+        <div class="lbn" style="color:${p.color}">${p.name}</div>
+        <div class="lbm">${p.countryCount} countries · ${p.totalPower}pts</div>
+      </div>
+      <div class="lbs">${p.countryCount}</div>
+      <div class="lbbar"><div class="lbbarfill" style="width:${bar}%;background:${p.color}"></div></div>`;
+    list.appendChild(d);
+  });
+}
+
+function addGiftFeed(player, gift) {
+  const list = document.getElementById('gift-list');
+  const d = document.createElement('div');
+  d.className = 'gi';
+  d.innerHTML = `
+    <div class="gi-r1">
+      <span class="gi-user" style="color:${player.color}">${player.name}</span>
+      <span class="gi-pow">${gift.emoji} +${gift.power}</span>
+    </div>
+    <div class="gi-r2">sent a ${gift.name}<span class="rar ${gift.rc}">${gift.rarity.toUpperCase()}</span></div>`;
+  list.insertBefore(d, list.firstChild);
+  while (list.children.length > 40) list.removeChild(list.lastChild);
+}
+
+function showToast(msg, color='var(--accent)') {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.style.borderColor = color; el.style.color = color;
+  el.classList.add('show');
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.classList.remove('show'), 2600);
+}
+
+function svgToScreen(centroid) {
+  if (!centroid || isNaN(centroid[0])) return null;
+  const svgEl = document.getElementById('world-svg');
+  const mapEl = document.getElementById('mp');
+  const sb = svgEl.getBoundingClientRect();
+  const mb = mapEl.getBoundingClientRect();
+  const W = parseFloat(svgEl.getAttribute('viewBox')?.split(' ')[2]) || 700;
+  const H = parseFloat(svgEl.getAttribute('viewBox')?.split(' ')[3]) || 400;
+  return {
+    x: (sb.left - mb.left) + centroid[0] * (sb.width / W),
+    y: (sb.top  - mb.top)  + centroid[1] * (sb.height / H),
+  };
+}
+
+function flashBattle(centroid) {
+  const pos = svgToScreen(centroid);
+  if (!pos) return;
+  const mp = document.getElementById('mp');
+  const el = document.createElement('div');
+  el.className = 'battle-ring';
+  const s = 28 + Math.random()*28;
+  el.style.cssText = `left:${pos.x-s/2}px;top:${pos.y-s/2}px;width:${s}px;height:${s}px;
+    background:radial-gradient(circle,rgba(255,51,85,.7) 0%,rgba(255,51,85,.1) 60%,transparent 100%);
+    border:1px solid rgba(255,51,85,.5)`;
+  mp.appendChild(el);
+  setTimeout(() => el.remove(), 1000);
+}
+
+function showGiftPopup(player, gift, countryId) {
+  const c = countries[countryId];
+  if (!c) return;
+  const pos = svgToScreen(c.centroid);
+  if (!pos) return;
+  const mp = document.getElementById('mp');
+  const el = document.createElement('div');
+  el.className = 'gift-popup';
+  el.style.borderColor = gift.color;
+  el.style.color = gift.color;
+  el.style.left = (pos.x - 28) + 'px';
+  el.style.top  = (pos.y - 28) + 'px';
+  el.textContent = `${gift.emoji} +${gift.power}`;
+  mp.appendChild(el);
+  setTimeout(() => el.remove(), 2400);
+  if (gift.rarity === 'legendary') {
+    const fl = document.createElement('div');
+    fl.className = 'leg-flash'; mp.appendChild(fl);
+    setTimeout(() => fl.remove(), 1700);
+    showToast(`🌌 ${player.name} sent a GALAXY!`, '#fbbf24');
+  }
+}
+
+function showJoinNotif(name) {
+  const mp = document.getElementById('mp');
+  const el = document.createElement('div');
+  el.className = 'join-notif';
+  el.textContent = `✦ ${name} joined the war!`;
+  mp.appendChild(el);
+  setTimeout(() => el.remove(), 3000);
+}
+
+function setStat(id, v) { const e = document.getElementById(id); if(e) e.textContent = v; }
+
+// ─── SIMULATION ───────────────────────────────────────
+function getDelay() {
+  return [2200,1100,580,270,80][parseInt(document.getElementById('spd').value)-1];
+}
+
+function simTick() {
+  const ids = Object.keys(players);
+  const used = new Set(ids.map(id => players[id].name));
+  const pool = PLAYER_NAMES.filter(n => !used.has(n));
+  const shouldAdd = ids.length < 4 || (ids.length < 18 && Math.random() < .2 && pool.length > 0);
+
+  let pid;
+  if (shouldAdd && pool.length > 0) {
+    const name = pool[Math.floor(Math.random() * pool.length)];
+    pid = addPlayer(name);
+    showJoinNotif(name);
+  } else if (ids.length > 0) {
+    const w = ids.map(id => 1/(players[id].countryCount+1));
+    const tot = w.reduce((a,b)=>a+b,0);
+    let r = Math.random()*tot;
+    for(let i=0;i<ids.length;i++){r-=w[i];if(r<=0){pid=ids[i];break;}}
+    if(!pid) pid=ids[Math.floor(Math.random()*ids.length)];
+  } else return;
+
+  const player = players[pid];
+  const r = Math.random();
+  const gift = r<.38?GIFTS[0]:r<.63?GIFTS[1]:r<.80?GIFTS[2]:r<.92?GIFTS[3]:r<.985?GIFTS[4]:GIFTS[5];
+
+  totalGifts++;
+  setStat('h-gifts', totalGifts);
+  addGiftFeed(player, gift);
+
+  const ownedIds = Object.keys(countries).filter(id => countries[id].owner === pid);
+  const popId = ownedIds.length > 0
+    ? ownedIds[Math.floor(Math.random()*ownedIds.length)]
+    : Object.keys(countries)[Math.floor(Math.random()*Object.keys(countries).length)];
+  showGiftPopup(player, gift, popId);
+  applyGift(pid, gift);
+}
+
+function sched() { simTimer = setTimeout(()=>{if(simRunning){simTick();sched();}},getDelay()); }
+
+function toggleSim() {
+  simRunning = !simRunning;
+  const btn = document.getElementById('btn-sim');
+  if (simRunning) {
+    btn.textContent = '⏹ Stop Simulation'; btn.classList.add('stop');
+    startRound(); sched();
+  } else {
+    btn.textContent = '▶ Start Simulation'; btn.classList.remove('stop');
+    clearTimeout(simTimer); clearInterval(roundTimer);
+  }
+}
+
+// ─── ROUND ────────────────────────────────────────────
+function startRound() {
+  roundStart = Date.now();
+  clearInterval(roundTimer);
+  roundTimer = setInterval(() => {
+    const pct = Math.min(((Date.now()-roundStart)/ROUND_MS)*100,100);
+    document.getElementById('round-prog').style.width = pct+'%';
+    if (pct >= 100) endRound();
+  }, 500);
+}
+
+function endRound() {
+  clearInterval(roundTimer);
+  const s = Object.values(players).sort((a,b) => b.countryCount - a.countryCount);
+  if (s[0]) showToast(`🏆 Round Over! Winner: ${s[0].name} (${s[0].countryCount} countries)`, '#ffd700');
+  setTimeout(() => {
+    Object.keys(countries).forEach(id => freeCountry(id));
+    Object.values(players).forEach(p => p.countryCount = 0);
+    updateLB();
+    setStat('h-countries', 0);
+    totalBattles = 0; setStat('h-battles', 0);
+    document.getElementById('round-prog').style.width = '0%';
+    if (simRunning) startRound();
+  }, 4000);
+}
+
+function resetGame() {
+  simRunning = false;
+  clearTimeout(simTimer); clearInterval(roundTimer);
+  players = {}; totalGifts = 0; totalBattles = 0;
+  Object.keys(countries).forEach(id => freeCountry(id));
+  document.getElementById('lb-list').innerHTML = '';
+  document.getElementById('gift-list').innerHTML = '';
+  document.getElementById('round-prog').style.width = '0%';
+  ['h-players','h-countries','h-gifts','h-battles'].forEach(id => setStat(id,0));
+  const btn = document.getElementById('btn-sim');
+  btn.textContent = '▶ Start Simulation'; btn.classList.remove('stop');
+  showToast('Game reset — ready!');
+}
+
+function connectTikTok() {
+  const u = document.getElementById('tt-inp').value.trim().replace('@','');
+  if (!u) { showToast('Enter your TikTok username!','#ff9900'); return; }
+  showToast(`Connecting to @${u}'s Live…`,'#ff5577');
+  setTimeout(() => showToast('⚠️ Backend needed for real TikTok Live. Running sim.','#ff9900'), 2600);
+}
+
+function hexA(hex, a) {
+  const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);
+  return `rgba(${r},${g},${b},${a})`;
+}
+
+// Speed slider
+const spdEl = document.getElementById('spd');
+spdEl.addEventListener('input', function() {
+  document.getElementById('spv').textContent = this.value + 'x';
+  const p = ((this.value-1)/4)*100;
+  this.style.background = `linear-gradient(to right,var(--accent) ${p}%,var(--bg3) ${p}%)`;
+  if (simRunning) { clearTimeout(simTimer); sched(); }
+});
+
+// ─── BOOT ─────────────────────────────────────────────
+initMap();
+</script>
+</body>
+</html>
