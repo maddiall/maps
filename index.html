@@ -25,7 +25,7 @@ html,body{width:100%;height:100%;background:var(--bg0);color:var(--text);
   grid-template-areas:"hd hd hd""lf mp rt""ft ft ft";
   width:100vw;height:100vh}
 
-/* HEADER */
+  
 #hd{grid-area:hd;display:flex;align-items:center;padding:0 18px;gap:14px;
   background:var(--bg2);border-bottom:1px solid var(--border2);z-index:50}
 .logo{font-family:'Orbitron',monospace;font-size:15px;font-weight:900;color:var(--accent);letter-spacing:3px}
@@ -41,7 +41,7 @@ html,body{width:100%;height:100%;background:var(--bg0);color:var(--text);
 .hv{font-family:'Orbitron',monospace;font-size:17px;font-weight:700;color:var(--accent);line-height:1}
 .hl{font-size:9px;color:var(--text3);letter-spacing:1px;text-transform:uppercase;margin-top:1px}
 
-/* LEFT */
+
 #lf{grid-area:lf;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
 .ptitle{font-family:'Orbitron',monospace;font-size:9px;font-weight:700;color:var(--text3);
   letter-spacing:2px;text-transform:uppercase;padding:10px 14px 8px;border-bottom:1px solid var(--border);flex-shrink:0}
@@ -63,7 +63,7 @@ html,body{width:100%;height:100%;background:var(--bg0);color:var(--text);
 .lbbar{position:absolute;bottom:0;left:50px;right:0;height:2px;background:rgba(255,255,255,.04)}
 .lbbarfill{height:100%;transition:width .6s ease}
 
-/* MAP */
+
 #mp{grid-area:mp;position:relative;overflow:hidden;background:#020e1a}
 #world-svg{width:100%;height:100%;display:block}
 .country{stroke:#0a2040;stroke-width:.4px;cursor:pointer;transition:fill .4s,opacity .2s}
@@ -106,7 +106,6 @@ html,body{width:100%;height:100%;background:var(--bg0);color:var(--text);
 #round-prog{height:100%;width:0%;background:linear-gradient(90deg,var(--accent),#0088cc);
   box-shadow:0 0 8px var(--accent);transition:width .5s linear}
 
-/* RIGHT */
 #rt{grid-area:rt;background:var(--bg2);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
 #gift-list{flex:1;overflow-y:auto}
 .gi{padding:7px 11px;border-bottom:1px solid rgba(255,255,255,.03);animation:sli .3s ease}
@@ -121,7 +120,7 @@ html,body{width:100%;height:100%;background:var(--bg0);color:var(--text);
 .re{background:rgba(192,132,252,.14);color:#c084fc}
 .rl{background:rgba(251,191,36,.14);color:#fbbf24}
 
-/* FOOTER */
+
 #ft{grid-area:ft;background:var(--bg2);border-top:1px solid var(--border2);
   display:flex;align-items:center;padding:0 18px;gap:16px;z-index:50}
 .fdiv{width:1px;height:34px;background:var(--border)}
@@ -210,7 +209,7 @@ html,body{width:100%;height:100%;background:var(--bg0);color:var(--text);
 </div>
 
 <script>
-// ─── CONFIG ───────────────────────────────────────────
+
 const PLAYER_NAMES = [
   'StarGazer99','NightOwl7','LegendX','PhoenixRise','QuantumQ',
   'VoidWalker','SkyFury','IronMask','DragonFly','CometChaser',
@@ -234,7 +233,7 @@ const GIFTS = [
 ];
 const ROUND_MS = 180000;
 
-// Country names lookup
+
 const CN = {
   4:'Afghanistan',8:'Albania',12:'Algeria',24:'Angola',32:'Argentina',
   36:'Australia',40:'Austria',50:'Bangladesh',56:'Belgium',68:'Bolivia',
@@ -257,13 +256,12 @@ const CN = {
   894:'Zambia',716:'Zimbabwe',
 };
 
-// ─── STATE ────────────────────────────────────────────
+
 let players = {}, countries = {};
 let simRunning = false, simTimer = null, roundTimer = null;
 let roundStart = 0, totalGifts = 0, totalBattles = 0;
 let projection, pathGen;
 
-// ─── MAP INIT ─────────────────────────────────────────
 async function initMap() {
   const svgEl = document.getElementById('world-svg');
   const W = svgEl.clientWidth || 700;
@@ -279,23 +277,23 @@ async function initMap() {
 
   pathGen = d3.geoPath().projection(projection);
 
-  // Ocean
+ 
   svg.append('rect').attr('class','ocean').attr('width',W).attr('height',H);
 
-  // Graticule
+
   svg.append('path')
     .datum(d3.geoGraticule()())
     .attr('class','graticule')
     .attr('d', pathGen);
 
-  // Sphere outline
+
   svg.append('path')
     .datum({type:'Sphere'})
     .attr('class','sphere-stroke')
     .attr('d', pathGen);
 
   try {
-    const topo = await d3.json('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json');
+    const topo = await d3.json('https://unpkg.com/world-atlas@2/countries-110m.json');
     const world = topojson.feature(topo, topo.objects.countries);
 
     svg.selectAll('path.country')
@@ -325,7 +323,7 @@ async function initMap() {
   } catch(e) {
     console.error(e);
     showToast('⚠️ Could not load map. Open in a browser with internet access.','#ff9900');
-    // Draw fallback placeholder
+  
     svg.append('rect').attr('x',40).attr('y',40).attr('width',W-80).attr('height',H-80)
       .attr('rx',10).attr('fill','#071628').attr('stroke','#1a4060').attr('stroke-width','1');
     svg.append('text').attr('x',W/2).attr('y',H/2-12).attr('text-anchor','middle')
@@ -337,7 +335,6 @@ async function initMap() {
   }
 }
 
-// ─── GAME LOGIC ───────────────────────────────────────
 function addPlayer(name) {
   const id = 'p_' + name;
   if (players[id]) return id;
@@ -370,7 +367,6 @@ function captureCountry(playerId, countryId, isBattle) {
     c.el.style.stroke = hexA(p.color, .6);
     c.el.style.strokeWidth = '1px';
     c.el.classList.remove('unclaimed');
-    // Quick flash
     c.el.style.opacity = '.4';
     setTimeout(() => { if(c.el) c.el.style.opacity = '1'; }, 350);
   }
@@ -397,7 +393,7 @@ function pickTarget(playerId, power) {
   const free    = Object.values(countries).filter(c => !c.owner && c.el);
   const enemy   = Object.values(countries).filter(c => c.owner && c.owner !== playerId && c.el);
 
-  // Prefer adjacent expansion
+
   if (owned.length > 0 && free.length > 0 && Math.random() < .65) {
     const base = owned[Math.floor(Math.random() * owned.length)];
     if (base.centroid && !isNaN(base.centroid[0])) {
@@ -429,7 +425,7 @@ function applyGift(playerId, gift) {
 
 function dist([x1,y1],[x2,y2]){return Math.hypot(x2-x1,y2-y1)}
 
-// ─── UI ───────────────────────────────────────────────
+
 function updateLB() {
   const sorted = Object.values(players).sort((a,b) => b.countryCount - a.countryCount);
   const maxC = sorted[0]?.countryCount || 1;
@@ -539,7 +535,7 @@ function showJoinNotif(name) {
 
 function setStat(id, v) { const e = document.getElementById(id); if(e) e.textContent = v; }
 
-// ─── SIMULATION ───────────────────────────────────────
+
 function getDelay() {
   return [2200,1100,580,270,80][parseInt(document.getElementById('spd').value)-1];
 }
@@ -593,7 +589,7 @@ function toggleSim() {
   }
 }
 
-// ─── ROUND ────────────────────────────────────────────
+
 function startRound() {
   roundStart = Date.now();
   clearInterval(roundTimer);
@@ -645,7 +641,7 @@ function hexA(hex, a) {
   return `rgba(${r},${g},${b},${a})`;
 }
 
-// Speed slider
+
 const spdEl = document.getElementById('spd');
 spdEl.addEventListener('input', function() {
   document.getElementById('spv').textContent = this.value + 'x';
@@ -654,7 +650,6 @@ spdEl.addEventListener('input', function() {
   if (simRunning) { clearTimeout(simTimer); sched(); }
 });
 
-// ─── BOOT ─────────────────────────────────────────────
 initMap();
 </script>
 </body>
